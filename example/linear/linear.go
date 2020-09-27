@@ -9,13 +9,20 @@ import (
 	"github.com/maxrafiandy/go-machine-learning/method"
 )
 
+const stdDev = 1e2
+
 func testSet(l *method.LogisticRegression) {
-	test, _ := os.Open("testset.csv")
-	defer test.Close()
+	testCSV, err := os.Open("testset.csv")
 
-	b := bufio.NewScanner(test)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	var testdata [][]float64
+	defer testCSV.Close()
+
+	b := bufio.NewScanner(testCSV)
+
+	var testData [][]float64
 	for b.Scan() {
 		var X [4]float64
 
@@ -26,19 +33,28 @@ func testSet(l *method.LogisticRegression) {
 			log.Fatal(err)
 		}
 
-		testdata = append(testdata, []float64{X[0], X[1], X[2], X[3]})
+		testData = append(testData, []float64{X[0], X[1] / stdDev, X[2] / stdDev, X[3] / stdDev})
 	}
 
-	for _, X := range testdata {
-		fmt.Printf("Predict on %v: %v\n", X[1:], l.Predict(X))
+	for i, X := range testData {
+		var stdDevX []float64
+		for _, x := range X {
+			stdDevX = append(stdDevX, x*stdDev)
+		}
+		fmt.Printf("Predict #%d on %v: %v\n", i+1, stdDevX[1:], l.Predict(X))
 	}
 }
 
 func trainSet(l *method.LogisticRegression) {
-	train, _ := os.Open("trainset.csv")
-	defer train.Close()
+	trainCSV, err := os.Open("trainset.csv")
 
-	b := bufio.NewScanner(train)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer trainCSV.Close()
+
+	b := bufio.NewScanner(trainCSV)
 
 	for b.Scan() {
 		var X [4]float64
@@ -51,20 +67,23 @@ func trainSet(l *method.LogisticRegression) {
 			log.Fatal(err)
 		}
 
-		l.Features = append(l.Features, []float64{X[0], X[1], X[2], X[3]})
+		l.Features = append(l.Features, []float64{X[0], X[1] / stdDev, X[2] / stdDev, X[3] / stdDev})
 		l.Output = append(l.Output, y)
 	}
 }
 
 func main() {
 	l := method.NewLogisticRegression()
-	l.Theta = []float64{1, 1, 1, 1}
+
+	l.Theta = []float64{-0.1, -0.2, 0.1, 0.2}
+
 	l.TrueDegree = 0.7
 
 	trainSet(l)
 
 	l.Minimize(method.LinearDefaultSetting())
-	fmt.Printf("Optimal theta : %v\n", l.Theta)
+
+	fmt.Printf("Optimal theta : %.3f\n", l.Theta)
 
 	testSet(l)
 }
